@@ -19,26 +19,34 @@ namespace Cryptor
                 string key = args[1];
                 string destinationPath = args[2];
 
-                switch (mode)
-                {
-                    case "/e":
-                        Console.WriteLine("Encryption...");
-                        EncryptFiles(GetFiles(destinationPath), key);
-                        break;
-
-                    case "/d":
-                        Console.WriteLine("Decryption...");
-                        DecryptFiles(GetFiles(destinationPath), key);
-                        break;
-
-                    default:
-                        ShowConsoleHelp();
-                        break;
-                }
+                if(Directory.Exists(destinationPath) == true)
+                    SwitchOnMode(mode, key, destinationPath);
+                else
+                    Console.WriteLine("Error! The specified destination folder does not exist.");
             }
             else
             {
                 ShowConsoleHelp();
+            }
+        }
+
+        static void SwitchOnMode(string mode, string key, string destinationPath)
+        {
+            switch (mode)
+            {
+                case "/e":
+                    Console.WriteLine("Encryption...");
+                    EncryptFiles(GetFiles(destinationPath), key);
+                    break;
+
+                case "/d":
+                    Console.WriteLine("Decryption...");
+                    DecryptFiles(GetFiles(destinationPath), key);
+                    break;
+
+                default:
+                    ShowConsoleHelp();
+                    break;
             }
         }
 
@@ -66,7 +74,7 @@ namespace Cryptor
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine($"Ошибка шифрования({ex.Message}) - {filePath}");
+                    Console.WriteLine($"Encryption error({ex.Message}) - {filePath}");
                 }
 
                 double progress = Math.Round(((double)(i + 1) * 100.0) / filePaths.Count, 2);
