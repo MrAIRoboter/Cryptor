@@ -1,5 +1,8 @@
-Using:
+# Using:
 
-[/e | /d] "{password}" "{destination}"
+```bash
+cryptor.exe [/e | /d] "{password}" "{destination}"
+
 /e - Encrypt
 /d - Decrypt
+```
