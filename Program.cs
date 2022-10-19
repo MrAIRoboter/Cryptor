@@ -11,42 +11,34 @@ namespace Cryptor
 {
     internal class Program
     {
-        static void Main(string[] args) //cryptor.exe /d 123 "C:/dest/"
+        static void Main(string[] args)
         {
-            if(args.Length == 3)
+            if (args.Length == 3)
             {
                 string mode = args[0];
                 string key = args[1];
                 string destinationPath = args[2];
 
-                if(Directory.Exists(destinationPath) == true)
-                    SwitchOnMode(mode, key, destinationPath);
-                else
-                    Console.WriteLine("Error! The specified destination folder does not exist.");
+                switch (mode)
+                {
+                    case "/e":
+                        Console.WriteLine("Encryption...");
+                        EncryptFiles(GetFiles(destinationPath), key);
+                        break;
+
+                    case "/d":
+                        Console.WriteLine("Decryption...");
+                        DecryptFiles(GetFiles(destinationPath), key);
+                        break;
+
+                    default:
+                        ShowConsoleHelp();
+                        break;
+                }
             }
             else
             {
                 ShowConsoleHelp();
-            }
-        }
-
-        static void SwitchOnMode(string mode, string key, string destinationPath)
-        {
-            switch (mode)
-            {
-                case "/e":
-                    Console.WriteLine("Encryption...");
-                    EncryptFiles(GetFiles(destinationPath), key);
-                    break;
-
-                case "/d":
-                    Console.WriteLine("Decryption...");
-                    DecryptFiles(GetFiles(destinationPath), key);
-                    break;
-
-                default:
-                    ShowConsoleHelp();
-                    break;
             }
         }
 
@@ -60,16 +52,14 @@ namespace Cryptor
 
         static void EncryptFiles(List<string> filePaths, string key)
         {
-            AES aes = new AES();
-
-            for(int i = 0; i < filePaths.Count; i++)
+            for (int i = 0; i < filePaths.Count; i++)
             {
                 string filePath = filePaths[i];
 
                 try
                 {
                     byte[] file = File.ReadAllBytes(filePath);
-                    File.WriteAllBytes($"{filePath}.enc", aes.Encrypt(file, key));
+                    File.WriteAllBytes($"{filePath}.enc", AES.Encrypt(file, key));
                     File.Delete(filePath);
                 }
                 catch (Exception ex)
@@ -84,8 +74,6 @@ namespace Cryptor
 
         static void DecryptFiles(List<string> filePaths, string key)
         {
-            AES aes = new AES();
-
             for (int i = 0; i < filePaths.Count; i++)
             {
                 string filePath = filePaths[i];
@@ -94,17 +82,18 @@ namespace Cryptor
                 {
                     byte[] file = File.ReadAllBytes(filePath);
                     string[] externs = filePath.Split('.');
+
                     if (externs[externs.Length - 1] == "enc")
                     {
                         string originalFilePath = externs[0];
                         for (int j = 1; j < externs.Length - 1; j++)
                             originalFilePath += $".{externs[j]}";
 
-                        File.WriteAllBytes($"{originalFilePath}", aes.Decrypt(file, key));
+                        File.WriteAllBytes($"{originalFilePath}", AES.Decrypt(file, key));
                         File.Delete(filePath);
                     }
                 }
-                catch(Exception ex)
+                catch (Exception ex)
                 {
                     Console.WriteLine($"Decryption error({ex.Message}) - {filePath}");
                 }
@@ -134,7 +123,7 @@ namespace Cryptor
                     nestedDirectories.AddRange(Directory.GetDirectories(nestedDirectories[0]));
                     nestedDirectories.RemoveAt(0);
                 }
-                catch(Exception ex)
+                catch (Exception ex)
                 {
                     Console.WriteLine($"Missed({ex.Message}) - {nestedDirectories[0]}");
                     nestedDirectories.RemoveAt(0);
@@ -145,9 +134,9 @@ namespace Cryptor
         }
     }
 
-    public class AES
+    public static class AES
     {
-        public byte[] Encrypt(byte[] data, string keyString)
+        public static byte[] Encrypt(byte[] data, string keyString)
         {
             byte[] cipherData;
             Aes aes = Aes.Create();
@@ -173,7 +162,7 @@ namespace Cryptor
             return combinedData;
         }
 
-        public byte[] Decrypt(byte[] combinedData, string keyString)
+        public static byte[] Decrypt(byte[] combinedData, string keyString)
         {
             try
             {
@@ -201,7 +190,7 @@ namespace Cryptor
             }
             catch
             {
-                return null;
+                throw new Exception("Data can't be decrypted!");
             }
         }
     }
