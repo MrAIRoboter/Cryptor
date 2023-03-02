@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
@@ -17,18 +18,22 @@ namespace Cryptor
             {
                 string mode = args[0];
                 string key = args[1];
-                string destinationPath = args[2];
+                string destinationDirectory = args[2];
+
+                Stopwatch stopwatch = Stopwatch.StartNew();
 
                 switch (mode)
                 {
                     case "/e":
                         Console.WriteLine("Encryption...");
-                        EncryptFiles(GetFiles(destinationPath), key);
+                        EncryptFiles(GetFiles(destinationDirectory), key);
+                        Console.WriteLine($"Elapsed time on encrypt- {stopwatch.ElapsedMilliseconds} ms.");
                         break;
 
                     case "/d":
                         Console.WriteLine("Decryption...");
-                        DecryptFiles(GetFiles(destinationPath), key);
+                        Console.WriteLine($"Elapsed time on decrypt - {stopwatch.ElapsedMilliseconds} ms.");
+                        DecryptFiles(GetFiles(destinationDirectory), key);
                         break;
 
                     default:
@@ -103,17 +108,17 @@ namespace Cryptor
             }
         }
 
-        static List<string> GetFiles(string fromDirectory)
+        static List<string> GetFiles(string directory)
         {
-            if (fromDirectory == "")
-                fromDirectory = Directory.GetCurrentDirectory();
-            fromDirectory = Path.GetFullPath(fromDirectory);
+            if (directory == "")
+                directory = Directory.GetCurrentDirectory();
+            directory = Path.GetFullPath(directory);
 
             List<string> filePaths = new List<string>();
             List<string> nestedDirectories = new List<string>();
 
-            filePaths.AddRange(Directory.GetFiles(fromDirectory));
-            nestedDirectories.AddRange(Directory.GetDirectories(fromDirectory));
+            filePaths.AddRange(Directory.GetFiles(directory));
+            nestedDirectories.AddRange(Directory.GetDirectories(directory));
 
             while (nestedDirectories.Count != 0)
             {
@@ -180,6 +185,7 @@ namespace Cryptor
                 using (MemoryStream ms = new MemoryStream(cipherData))
                 {
                     byte[] decryptedData = new byte[ms.Length];
+
                     using (CryptoStream cs = new CryptoStream(ms, decipher, CryptoStreamMode.Read))
                     {
                         cs.Read(decryptedData, 0, (int)ms.Length);
