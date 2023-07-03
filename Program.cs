@@ -16,12 +16,9 @@ namespace Cryptor
 {
     public class Program
     {
-        private static object _consoleLock;
 
         public static void Main(string[] args)
         {
-            _consoleLock = new object();
-
             if (args.Length == 0)
             {
                 args = new string[4];
@@ -340,13 +337,6 @@ namespace Cryptor
             return foundFiles;
         }
 
-        private static void ConsoleWriteLine(string message)
-        {
-            lock (_consoleLock)
-            {
-                Console.WriteLine(message);
-            }
-        }
     }
 
     public static class AES

@@ -4,6 +4,10 @@
 
 [vk]: https://vk.com/mrairobot
 
+[logo]: https://i.ibb.co/bLdpT8G/Cryptor-logo.png
+
+![logo]
+
 [Скачать релиз][release]
 
 # Информация
