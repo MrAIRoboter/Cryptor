@@ -4,7 +4,7 @@
 
 [vk]: https://vk.com/mrairobot
 
-[logo]: https://i.ibb.co/bLdpT8G/Cryptor-logo.png
+[logo]: https://i.ibb.co/Xk3VcjX/Resized-Cryptor-logo.png
 
 ![logo]
 
