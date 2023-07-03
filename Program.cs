@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
+using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
@@ -23,10 +24,11 @@ namespace Cryptor
 
             if (args.Length == 0)
             {
-                args = new string[3];
+                args = new string[4];
                 bool isModeEntered = false;
                 bool isKeyEntered = false;
                 bool isDestinationPathEntered = false;
+                bool isStorageTypeEntered = false;
 
                 while (isModeEntered == false)
                 {
@@ -54,28 +56,49 @@ namespace Cryptor
                     if (args[2].Length > 0)
                         isDestinationPathEntered = true;
                 }
+
+                while (isStorageTypeEntered == false)
+                {
+                    Console.Write($"Введите тип целевого накопителя данных [hdd | ssd] (по умолчанию hdd): ");
+                    args[3] = Console.ReadLine();
+
+                    if (args[3] == "")
+                        args[3] = "hdd";
+
+                    if (args[3] == "hdd" || args[3] == "ssd")
+                        isStorageTypeEntered = true;
+                }
             }
 
-            if (args.Length == 3)
+            if (args.Length >= 3)
             {
                 string mode = args[0];
                 string key = args[1];
                 string destinationPath = args[2];
+                string storageType = "hdd";
                 List<string> missedPaths = new List<string>();
                 List<string> errorFilePaths = new List<string>();
                 Stopwatch stopwatch = Stopwatch.StartNew();
+                bool isSynchronous = true;
+
+                if (args.Length > 3)
+                    if (args[3] == "hdd" || args[3] == "ssd")
+                        storageType = args[3];
+
+                if (args[3] == "ssd")
+                    isSynchronous = false;
 
                 switch (mode)
                 {
                     case "/e":
                         Console.WriteLine("Шифрование...");
-                        EncryptFiles(GetFiles(destinationPath, ref missedPaths), key, "enc", ref errorFilePaths);
+                        EncryptFiles(GetFiles(destinationPath, ref missedPaths), key, ref errorFilePaths, isSynchronous);
                         Console.WriteLine("\nШифрование завершено.");
                         break;
 
                     case "/d":
                         Console.WriteLine("Дешифрование...");
-                        DecryptFiles(GetFiles(destinationPath, ref missedPaths), key, "enc", ref errorFilePaths);
+                        DecryptFiles(GetFiles(destinationPath, ref missedPaths), key, ref errorFilePaths, isSynchronous);
                         Console.WriteLine("\nДешифрование завершено.");
                         break;
 
@@ -107,113 +130,153 @@ namespace Cryptor
             {
                 ShowConsoleHelp();
             }
+
+            //Console.ReadKey();
         }
 
         private static void ShowConsoleHelp()
         {
             Console.WriteLine("Использование:\n");
-            Console.WriteLine("[/e | /d] \"пароль\" \"путь\"");
+            Console.WriteLine("[/e | /d] [пароль] [\"путь\"] [hdd | ssd]");
             Console.WriteLine("/e - Шифрование");
             Console.WriteLine("/d - Дешифрование");
+            Console.WriteLine("hdd - жёсткий диск, ssd - твердотельный SSD накопитель (по-умолчанию hdd)");
         }
 
-        private static void EncryptFiles(List<string> filePaths, string key, string fileExtension, ref List<string> errorFilePaths)
+        public static void EncryptFiles(List<string> filePaths, string key, ref List<string> errorFilePaths, bool isSynchronous = true)
         {
-            long completedCount = 0;
-            List<string> tempErrorFilePaths = new List<string>();
-
-            for (int i = 0; i < filePaths.Count; i++)
-            {
-                int index = i;
-
-                ThreadPool.QueueUserWorkItem(state =>
-                {
-                    string filePath = filePaths[index];
-
-                    try
-                    {
-                        AES.Encrypt(filePath, fileExtension, key);
-                        File.Delete(filePath);
-                    }
-                    catch (Exception ex)
-                    {
-                        Console.WriteLine($"\nОшибка шифрования({ex.Message}) - {filePath}");
-                        tempErrorFilePaths.Add(filePath);
-                    }
-
-                    Interlocked.Increment(ref completedCount);
-
-                    double progress = Math.Round(((double)(Interlocked.Read(ref completedCount)) * 100.0) / filePaths.Count, 2);
-                    ConsoleWriteLine($"{progress}% - {filePath}");
-                });
-            }
-
-            while (completedCount < filePaths.Count)
-                Thread.Sleep(200);
-
-            errorFilePaths.AddRange(tempErrorFilePaths);
+            ProcessFiles(TryEncryptFile, filePaths, key, ref errorFilePaths, isSynchronous);
         }
 
-        private static void DecryptFiles(List<string> filePaths, string key, string fileExtension, ref List<string> errorFilePaths)
+        public static void DecryptFiles(List<string> filePaths, string key, ref List<string> errorFilePaths, bool isSynchronous = true)
         {
+            string fileExtension = "enc";
             filePaths = FilterFilesByExtension(filePaths, fileExtension);
+
+            ProcessFiles(TryDecryptFile, filePaths, key, ref errorFilePaths, isSynchronous);
+        }
+
+        private static bool TryEncryptFile(string filePath, string key, int bufferSize = 64 << 20)
+        {
+            string fileExtension = "enc";
+            bool isErrorFile = false;
+
+            try
+            {
+                AES.Encrypt(filePath, fileExtension, key, bufferSize);
+                File.Delete(filePath);
+            }
+            catch (Exception ex)
+            {
+                isErrorFile = true;
+
+                Console.WriteLine($"\nОшибка шифрования({ex.Message}) - {filePath}");
+            }
+
+            return isErrorFile == false;
+        }
+
+        private static bool TryDecryptFile(string filePath, string key, int bufferSize)
+        {
+            string[] externs = filePath.Split('.');
+            string originalFilePath = externs[0];
+            bool isErrorFile = false;
+
+            try
+            {
+                for (int j = 1; j < externs.Length - 1; j++)
+                    originalFilePath += $".{externs[j]}";
+
+                AES.Decrypt(filePath, originalFilePath, key, bufferSize);
+                File.Delete(filePath);
+            }
+            catch (CryptographicException)
+            {
+                isErrorFile = true;
+
+                Console.WriteLine($"\nНеверный пароль - {filePath}");
+            }
+            catch (Exception ex)
+            {
+                isErrorFile = true;
+
+                Console.WriteLine($"\nОшибка дешифрования({ex.Message}) - {filePath}");
+            }
+
+            if (isErrorFile == true)
+            {
+                try
+                {
+                    File.Delete(originalFilePath);
+                }
+                catch { }
+            }
+
+            return isErrorFile == false;
+        }
+
+        private static void ShowProgress(string filePath, long completedCount, int filePathsCount)
+        {
+            double progress = Math.Round(((double)(completedCount) * 100.0) / filePathsCount, 2);
+            Console.WriteLine($"{progress}% - {filePath}");
+        }
+
+        private static void ProcessFiles(Func<string, string,int, bool> tryCrypt, List<string> filePaths, string key, ref List<string> errorFilePaths, bool isSynchronous = true)
+        {
             long completedCount = 0;
             List<string> tempErrorFilePaths = new List<string>();
 
             for (int i = 0; i < filePaths.Count; i++)
             {
                 int index = i;
+                string filePath = filePaths[index];
+                bool isErrorFile = false;
 
-                ThreadPool.QueueUserWorkItem(state =>
+                if (isSynchronous == true)
                 {
-                    string filePath = filePaths[index];
-                    string[] externs = filePath.Split('.');
-                    string originalFilePath = externs[0];
-                    bool isErrorFile = false;
-
-                    try
+                    ProcessFile(tryCrypt, out isErrorFile, filePath, key, ref completedCount, filePaths.Count, 512 << 20);
+                }
+                else
+                {
+                    ThreadPool.QueueUserWorkItem(state =>
                     {
-                        for (int j = 1; j < externs.Length - 1; j++)
-                            originalFilePath += $".{externs[j]}";
+                        ProcessFile(tryCrypt, out isErrorFile, filePath, key, ref completedCount, filePaths.Count, 64 << 20);
 
-                        AES.Decrypt(filePath, originalFilePath, key);
-                        File.Delete(filePath);
-                    }
-                    catch (CryptographicException)
-                    {
-                        isErrorFile = true;
+                        if (isErrorFile == true)
+                            tempErrorFilePaths.Add(filePath);
+                    });
+                }
 
-                        Console.WriteLine($"\nНеверный пароль - {filePath}");
-                    }
-                    catch (Exception ex)
-                    {
-                        isErrorFile = true;
-
-                        Console.WriteLine($"\nОшибка дешифрования({ex.Message}) - {filePath}");
-                    }
-
-                    if (isErrorFile == true)
-                    {
-                        tempErrorFilePaths.Add(filePath);
-
-                        try
-                        {
-                            File.Delete(originalFilePath);
-                        }
-                        catch { }
-                    }
-
-                    Interlocked.Increment(ref completedCount);
-
-                    double progress = Math.Round(((double)(Interlocked.Read(ref completedCount)) * 100.0) / filePaths.Count, 2);
-                    ConsoleWriteLine($"{progress}% - {filePath}");
-                });
+                if (isErrorFile == true)
+                    tempErrorFilePaths.Add(filePath);
             }
 
-            while (completedCount < filePaths.Count)
-                Thread.Sleep(200);
+            WaitForComlete(ref completedCount, filePaths.Count, 200);
 
             errorFilePaths.AddRange(tempErrorFilePaths);
+        }
+
+        private static void ProcessFile(Func<string, string, int, bool> tryCrypt, out bool isErrorFile, string filePath, string key, ref long completedCount, int filePathsCount, int bufferSize)
+        {
+            isErrorFile = tryCrypt(filePath, key, bufferSize) == false;
+
+            Interlocked.Increment(ref completedCount);
+
+            ShowProgress(filePath, completedCount, filePathsCount);
+        }
+
+        private static void WaitForComlete(ref long completedCount, int allCount, int delay)
+        {
+            for(int garbageCollectorDelay = 0; completedCount < allCount; garbageCollectorDelay += delay)
+            {
+                if(garbageCollectorDelay >= delay * 100)
+                {
+                    GC.Collect();
+                    garbageCollectorDelay = 0;
+                }
+
+                Thread.Sleep(delay);
+            }
         }
 
         private static List<string> FilterFilesByExtension(List<string> filePaths, string fileExtension)
@@ -288,8 +351,8 @@ namespace Cryptor
 
     public static class AES
     {
-        /// <param name="bufferSize">Размер буфера в байтах. Default: 128 MBytes</param>
-        public static void Encrypt(string inputFilePath, string outputFileExtension, string keyString, int bufferSize = 128 << 20)
+        /// <param name="bufferSize">Размер буфера в байтах.</param>
+        public static void Encrypt(string inputFilePath, string outputFileExtension, string keyString, int bufferSize = 64 << 20)
         {
             Aes aes = Aes.Create();
             SHA256 sha256 = SHA256Managed.Create();
@@ -327,7 +390,12 @@ namespace Cryptor
                             int bytesReadCount;
 
                             while ((bytesReadCount = inputStream.Read(buffer, 0, buffer.Length)) > 0)
+                            {
                                 cryptoStream.Write(buffer, 0, bytesReadCount);
+
+                                if (bufferSize > (64 << 20))
+                                    GC.Collect();
+                            }
                         }
                     }
                 }
@@ -337,8 +405,8 @@ namespace Cryptor
                 GC.Collect();
         }
 
-        /// <param name="bufferSize">Размер буфера в байтах. Default: 128 MBytes</param>
-        public static void Decrypt(string inputFilePath, string outputFilePath, string keyString, int bufferSize = 128 << 20)
+        /// <param name="bufferSize">Размер буфера в байтах.</param>
+        public static void Decrypt(string inputFilePath, string outputFilePath, string keyString, int bufferSize = 64 << 20)
         {
             Aes aes = Aes.Create();
             SHA256 sha256 = SHA256Managed.Create();
@@ -382,7 +450,12 @@ namespace Cryptor
                             int bytesReadCount;
 
                             while ((bytesReadCount = cryptoStream.Read(buffer, 0, buffer.Length)) > 0)
+                            {
                                 outputStream.Write(buffer, 0, bytesReadCount);
+
+                                if (bufferSize > (64 << 20))
+                                    GC.Collect();
+                            }
                         }
                     }
                 }
