@@ -50,8 +50,10 @@ namespace Cryptor
                     Console.Write("Введите путь: ");
                     args[2] = Console.ReadLine();
 
-                    if (args[2].Length > 0)
+                    if (File.Exists(args[2]) || Directory.Exists(args[2]))
                         isDestinationPathEntered = true;
+                    else
+                        Console.WriteLine($"Пути '{args[2]}' - не существует!");
                 }
 
                 while (isStorageTypeEntered == false)
@@ -296,14 +298,17 @@ namespace Cryptor
             return result;
         }
 
-        private static List<string> GetFiles(string fromDirectory, ref List<string> missedPaths)
+        private static List<string> GetFiles(string fromPathOrDirectory, ref List<string> missedPaths)
         {
-            if (string.IsNullOrEmpty(fromDirectory))
-                fromDirectory = Directory.GetCurrentDirectory();
+            if (string.IsNullOrEmpty(fromPathOrDirectory))
+                throw new ArgumentNullException(nameof(fromPathOrDirectory));
 
-            fromDirectory = Path.GetFullPath(fromDirectory);
+            fromPathOrDirectory = Path.GetFullPath(fromPathOrDirectory);
 
-            return GetAllFiles(fromDirectory, missedPaths);
+            if(File.Exists(fromPathOrDirectory) == true)
+                return new List<string> { fromPathOrDirectory };
+
+            return GetAllFiles(fromPathOrDirectory, missedPaths);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
