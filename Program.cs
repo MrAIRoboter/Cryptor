@@ -19,8 +19,11 @@ namespace Cryptor
 
         public static void Main(string[] args)
         {
+            bool isInteractiveLaunch = false;
+
             if (args.Length == 0)
             {
+                isInteractiveLaunch = true;
                 args = new string[4];
                 bool isModeEntered = false;
                 bool isKeyEntered = false;
@@ -131,7 +134,11 @@ namespace Cryptor
                 ShowConsoleHelp();
             }
 
-            //Console.ReadKey();
+            if(isInteractiveLaunch == true)
+            {
+                Console.WriteLine("Выполнение программы завершено!");
+                Console.ReadKey();
+            }
         }
 
         private static void ShowConsoleHelp()
