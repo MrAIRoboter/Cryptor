@@ -49,6 +49,7 @@ namespace Cryptor
                 {
                     Console.Write("Введите путь: ");
                     args[2] = Console.ReadLine();
+                    args[2] = args[2].Replace("\"", "");
 
                     if (File.Exists(args[2]) || Directory.Exists(args[2]))
                         isDestinationPathEntered = true;
