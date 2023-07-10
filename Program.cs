@@ -110,6 +110,8 @@ namespace Cryptor
                         break;
                 }
 
+                stopwatch.Stop();
+
                 if (missedPaths.Count > 0)
                 {
                     Console.WriteLine("\nВозникли проблемы при чтении следующих путей:");
@@ -126,7 +128,9 @@ namespace Cryptor
                         Console.WriteLine($" - {filePath}");
                 }
 
-                stopwatch.Stop();
+                if (missedPaths.Count > 0 || errorFilePaths.Count > 0)
+                    Console.WriteLine("Памятка: Не забудьте в свойствах файла/папки убрать галочку 'Только чтение'!");
+                
                 Console.WriteLine($"Затрачено времени: {stopwatch.Elapsed.ToString("h'ч. 'm'м. 's'с.'")}");
             }
             else
